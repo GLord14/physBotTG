@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Добавление вопроса</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        input { width: 100%; padding: 12px; margin: 10px 0 20px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Добавить вопрос ✍️</h2>
+        
+        <label>Тема (например: Электродинамика)</label>
+        <input type="text" id="topic" placeholder="Введите тему...">
+
+        <label>Текст вопроса</label>
+        <input type="text" id="text" placeholder="Введите вопрос...">
+
+        <label>Правильный ответ (формула)</label>
+        <input type="text" id="answer" placeholder="Введите ответ...">
+
+        <button onclick="sendQuestion()">Сохранить в БД</button>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        function sendQuestion() {
+            const topic = document.getElementById('topic').value;
+            const text = document.getElementById('text').value;
+            const answer = document.getElementById('answer').value;
+
+            if(!topic || !text || !answer) {
+                tg.showAlert("Заполните все поля!");
+                return;
+            }
+
+            // Отправляем специальный тип данных (action: add_question)
+            const data = JSON.stringify({ action: 'add_question', topic: topic, text: text, answer: answer });
+            tg.sendData(data);
+        }
+    </script>
+</body>
+</html>

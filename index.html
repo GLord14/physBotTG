@@ -7,89 +7,256 @@
     <!-- Подключаем скрипт Telegram Web App -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #f4f4f9);
+            --text-color: var(--tg-theme-text-color, #333333);
+            --hint-color: var(--tg-theme-hint-color, #999999);
+            --button-color: var(--tg-theme-button-color, #007bff);
+            --button-text-color: var(--tg-theme-button-text-color, #ffffff);
+            --correct-color: #28a745;
+            --wrong-color: #dc3545;
+            --card-bg: var(--tg-theme-secondary-bg-color, #ffffff);
+        }
+
         body {
-            font-family: sans-serif;
-            background-color: var(--tg-theme-bg-color, #ffffff);
-            color: var(--tg-theme-text-color, #000000);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             padding: 20px;
+            margin: 0;
+            line-height: 1.6;
         }
-        .question-block {
+
+        h2 {
+            text-align: center;
             margin-bottom: 20px;
-            padding: 10px;
-            border: 1px solid var(--tg-theme-hint-color, #ccc);
-            border-radius: 8px;
+            font-size: 24px;
         }
+
+        .screen {
+            display: none;
+            animation: fadeIn 0.4s ease-in-out;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .card p {
+            margin: 0 0 10px 0;
+            font-weight: 500;
+        }
+
         input {
-            width: 90%;
-            padding: 10px;
-            margin-top: 10px;
-            border-radius: 5px;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px;
+            border-radius: 8px;
             border: 1px solid #ccc;
+            font-size: 16px;
+            transition: border-color 0.3s;
+            background-color: var(--bg-color);
+            color: var(--text-color);
         }
+
+        input:focus {
+            outline: none;
+            border-color: var(--button-color);
+        }
+
         button {
             width: 100%;
-            padding: 15px;
-            background-color: var(--tg-theme-button-color, #3390ec);
-            color: var(--tg-theme-button-text-color, #ffffff);
+            padding: 16px;
+            background-color: var(--button-color);
+            color: var(--button-text-color);
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
             cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+            transition: transform 0.1s, box-shadow 0.1s;
+            margin-top: 10px;
+        }
+
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 6px rgba(0, 123, 255, 0.3);
+        }
+
+        .user-info {
+            background: linear-gradient(135deg, var(--button-color), #0056b3);
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        
+        .user-info p { margin: 5px 0; }
+        
+        .result-item {
+            margin-bottom: 10px;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 5px solid gray;
+            background-color: var(--card-bg);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .result-item.correct { border-left-color: var(--correct-color); }
+        .result-item.wrong { border-left-color: var(--wrong-color); }
+        
+        .result-item span { display: block; font-size: 14px; margin-top: 4px; }
+        .text-correct { color: var(--correct-color); font-weight: bold; }
+        .text-wrong { color: var(--wrong-color); font-weight: bold; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
-    <h2>Проверка знаний</h2>
-    <div id="quiz-container"></div>
-    <button onclick="submitQuiz()">Отправить результаты</button>
+
+    <!-- ЭКРАН 1: Вопросы -->
+    <div id="quiz-screen" class="screen active">
+        <h2 id="quiz-title">Проверка знаний ⚛️</h2>
+        <div id="quiz-container"></div>
+        <button id="check-btn" onclick="checkAnswers()">Проверить ответы</button>
+    </div>
+
+    <!-- ЭКРАН 2: Результаты -->
+    <div id="results-screen" class="screen">
+        <h2>Ваши результаты 📊</h2>
+        
+        <div class="user-info" id="user-info-block">
+            <!-- Сюда подставится имя и время -->
+        </div>
+
+        <div id="results-container"></div>
+        
+        <button onclick="sendToBot()" style="background-color: #28a745; box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);">
+            Всё верно, отправить в БД!
+        </button>
+        <button onclick="goBack()" style="background-color: transparent; color: var(--button-color); box-shadow: none; padding: 10px;">
+            ← Вернуться к вопросам
+        </button>
+    </div>
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.expand(); // Разворачиваем приложение на весь экран
+        tg.expand();
 
-        // База вопросов (10 штук)
-        const questions = [
-            { id: 1, text: "Закон Ома для участка цепи (I = ?)", answer: "U/R" },
-            { id: 2, text: "Сила Ампера (F = ?)", answer: "IBL" },
-            { id: 3, text: "Сила Лоренца (без учета угла) (F = ?)", answer: "qvB" },
-            { id: 4, text: "ЭДС индукции (закон Фарадея по модулю) (E = ?)", answer: "df/dt" },
-            { id: 5, text: "Второй закон Ньютона (F = ?)", answer: "ma" },
-            { id: 6, text: "Кинетическая энергия (E = ?)", answer: "mv^2/2" },
-            { id: 7, text: "Формула работы (A = ?)", answer: "Fs" },
-            { id: 8, text: "Мощность электрического тока (P = ?)", answer: "UI" },
-            { id: 9, text: "Емкость плоского конденсатора (C = ?)", answer: "ee0S/d" },
-            { id: 10, text: "Связь длины волны, скорости и частоты (v = ?)", answer: "ln" } // l - лямбда, n - ню
-        ];
+        let questions = [];
+        let finalScore = 0;
 
-        const container = document.getElementById('quiz-container');
+        // Читаем вопросы из URL, которые передал бот
+        const urlParams = new URLSearchParams(window.location.search);
+        const encodedData = urlParams.get('q');
+        
+        if (encodedData) {
+            try {
+                // Раскодируем данные обратно в массив
+                questions = JSON.parse(decodeURIComponent(encodedData));
+            } catch (e) {
+                console.error("Ошибка чтения вопросов:", e);
+            }
+        }
 
-        // Рендерим вопросы
-        questions.forEach((q, index) => {
-            const div = document.createElement('div');
-            div.className = 'question-block';
-            div.innerHTML = `
-                <p><b>Вопрос ${index + 1}:</b> ${q.text}</p>
-                <input type="text" id="q${q.id}" placeholder="Введите формулу...">
-            `;
-            container.appendChild(div);
-        });
+        // Рендерим вопросы на первом экране
+        const quizContainer = document.getElementById('quiz-container');
+        
+        if (questions.length === 0) {
+            quizContainer.innerHTML = "<p style='text-align:center;'>Ошибка: вопросы не загружены или по этой теме их пока нет.</p>";
+            document.getElementById('check-btn').style.display = 'none';
+        } else {
+            questions.forEach((q, index) => {
+                const div = document.createElement('div');
+                div.className = 'card';
+                div.innerHTML = `
+                    <p><b>Вопрос ${index + 1}:</b> ${q.text}</p>
+                    <input type="text" id="q${q.id}" placeholder="Ваш ответ..." autocomplete="off">
+                `;
+                quizContainer.appendChild(div);
+            });
+        }
 
-        function submitQuiz() {
-            let score = 0;
-            questions.forEach(q => {
-                const inputVal = document.getElementById(`q${q.id}`).value;
+        // Функция проверки ответов (переход на второй экран)
+        function checkAnswers() {
+            finalScore = 0;
+            const resultsContainer = document.getElementById('results-container');
+            resultsContainer.innerHTML = ''; // Очищаем прошлые результаты
+
+            questions.forEach((q, index) => {
+                const inputElement = document.getElementById(`q${q.id}`);
+                const inputVal = inputElement ? inputElement.value : '';
+                
                 // Очищаем от пробелов и приводим к нижнему регистру для гибкой проверки
                 const cleanInput = inputVal.replace(/\s+/g, '').toLowerCase();
-                const cleanAnswer = q.answer.toLowerCase();
+                const cleanAnswer = q.answer.replace(/\s+/g, '').toLowerCase();
                 
-                if (cleanInput === cleanAnswer) {
-                    score++;
-                }
+                const isCorrect = cleanInput === cleanAnswer;
+                if (isCorrect) finalScore++;
+
+                // Создаем карточку результата
+                const resDiv = document.createElement('div');
+                resDiv.className = `result-item ${isCorrect ? 'correct' : 'wrong'}`;
+                
+                resDiv.innerHTML = `
+                    <b>${index + 1}. ${q.text}</b>
+                    <span>Ваш ответ: <i>${inputVal || '(пусто)'}</i></span>
+                    ${isCorrect 
+                        ? '<span class="text-correct">✅ Верно</span>' 
+                        : `<span class="text-wrong">❌ Ошибка (Правильно: ${q.answer})</span>`
+                    }
+                `;
+                resultsContainer.appendChild(resDiv);
             });
 
-            // Отправляем данные обратно в бота
-            const data = JSON.stringify({ score: score, total: questions.length });
-            tg.sendData(data);
+            // Заполняем данные пользователя (из API Telegram)
+            let userName = "Ученик";
+            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                userName = tg.initDataUnsafe.user.first_name;
+                if (tg.initDataUnsafe.user.last_name) userName += " " + tg.initDataUnsafe.user.last_name;
+                if (tg.initDataUnsafe.user.username) userName += ` (@${tg.initDataUnsafe.user.username})`;
+            }
+            
+            const now = new Date();
+            const dateString = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU');
+
+            document.getElementById('user-info-block').innerHTML = `
+                <p>👤 <b>Пользователь:</b> ${userName}</p>
+                <p>🕒 <b>Время:</b> ${dateString}</p>
+                <p>🏆 <b>Итог:</b> ${finalScore} из ${questions.length} правильных</p>
+            `;
+
+            // Переключаем экраны
+            document.getElementById('quiz-screen').classList.remove('active');
+            document.getElementById('results-screen').classList.add('active');
+            window.scrollTo(0, 0); // Прокручиваем наверх
+        }
+
+        // Функция возврата (если пользователь хочет исправить ответы)
+        function goBack() {
+            document.getElementById('results-screen').classList.remove('active');
+            document.getElementById('quiz-screen').classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        // Финальная отправка в бота
+        function sendToBot() {
+            const data = JSON.stringify({ score: finalScore, total: questions.length });
+            tg.sendData(data); 
         }
     </script>
 </body>
