@@ -3,48 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Добавление вопроса</title>
+    <title>Панель администратора</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        input { width: 100%; padding: 12px; margin: 10px 0 20px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
-        button { width: 100%; padding: 15px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 15px; background-color: #f4f4f9; display: none; margin: 0; }
+        .tabs { display: flex; margin-bottom: 15px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .tab { flex: 1; text-align: center; padding: 12px; cursor: pointer; font-weight: bold; color: #555; border-bottom: 3px solid transparent; }
+        .tab.active { color: #007bff; border-bottom-color: #007bff; background-color: #f8f9fa; }
+        .content { display: none; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .content.active { display: block; }
+        
+        input { width: 100%; padding: 12px; margin: 8px 0 16px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
+        button.save-btn { width: 100%; padding: 15px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: #f8f9fa; color: #333; }
+        .score-good { color: #28a745; font-weight: bold; }
+        .score-bad { color: #dc3545; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2>Добавить вопрос ✍️</h2>
-        
-        <label>Тема (например: Электродинамика)</label>
-        <input type="text" id="topic" placeholder="Введите тему...">
+    
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('add')">➕ Добавить</div>
+        <div class="tab" onclick="switchTab('questions')">📚 Вопросы</div>
+        <div class="tab" onclick="switchTab('history')">📊 Ответы</div>
+    </div>
 
-        <label>Текст вопроса</label>
-        <input type="text" id="text" placeholder="Введите вопрос...">
+    <!-- Вкладка 1: Добавление -->
+    <div id="add" class="content active">
+        <h3 style="margin-top:0;">Новый вопрос ✍️</h3>
+        <label>Тема:</label> <input type="text" id="topic" placeholder="Например: Механика">
+        <label>Вопрос:</label> <input type="text" id="text" placeholder="Текст вопроса...">
+        <label>Ответ:</label> <input type="text" id="answer" placeholder="Правильная формула...">
+        <button class="save-btn" onclick="sendQuestion()">Сохранить в БД</button>
+    </div>
 
-        <label>Правильный ответ (формула)</label>
-        <input type="text" id="answer" placeholder="Введите ответ...">
+    <!-- Вкладка 2: База вопросов -->
+    <div id="questions" class="content">
+        <h3 style="margin-top:0;">Все вопросы</h3>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead><tr><th>ID</th><th>Тема</th><th>Вопрос</th><th>Ответ</th></tr></thead>
+                <tbody id="q-table-body"></tbody>
+            </table>
+        </div>
+    </div>
 
-        <button onclick="sendQuestion()">Сохранить в БД</button>
+    <!-- Вкладка 3: История ответов -->
+    <div id="history" class="content">
+        <h3 style="margin-top:0;">Результаты учеников</h3>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead><tr><th>Имя</th><th>Счет</th><th>Время</th></tr></thead>
+                <tbody id="h-table-body"></tbody>
+            </table>
+        </div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
 
+        // 1. Проверка пароля
+        const password = prompt("Введите пароль администратора:");
+        if (password !== "88888888") {
+            document.body.innerHTML = "<h2 style='text-align:center; margin-top:50px; color:#dc3545;'>Доступ запрещен ❌</h2>";
+            document.body.style.display = "block";
+            setTimeout(() => tg.close(), 2000);
+        } else {
+            document.body.style.display = "block";
+            loadData(); // Загружаем таблицы, если пароль верный
+        }
+
+        // 2. Переключение вкладок
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        // 3. Отправка вопроса в бота
         function sendQuestion() {
             const topic = document.getElementById('topic').value;
             const text = document.getElementById('text').value;
             const answer = document.getElementById('answer').value;
+            if(!topic || !text || !answer) { tg.showAlert("Заполните все поля!"); return; }
+            tg.sendData(JSON.stringify({ action: 'add_question', topic, text, answer }));
+        }
 
-            if(!topic || !text || !answer) {
-                tg.showAlert("Заполните все поля!");
-                return;
+        // 4. Загрузка данных из ссылки бота
+        function loadData() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const encodedData = urlParams.get('d');
+            if (!encodedData) return;
+
+            try {
+                const data = JSON.parse(decodeURIComponent(encodedData));
+                
+                // Рендерим вопросы
+                const qBody = document.getElementById('q-table-body');
+                data.questions.forEach(q => {
+                    qBody.innerHTML += `<tr><td>${q.id}</td><td>${q.topic}</td><td>${q.text}</td><td><b>${q.answer}</b></td></tr>`;
+                });
+
+                // Рендерим историю
+                const hBody = document.getElementById('h-table-body');
+                data.history.forEach(h => {
+                    // Форматируем дату (убираем миллисекунды)
+                    const timeStr = h.time.split('.')[0];
+                    // Раскрашиваем счет
+                    const scoreClass = (h.score / h.total >= 0.5) ? 'score-good' : 'score-bad';
+                    
+                    hBody.innerHTML += `<tr>
+                        <td>${h.name}</td>
+                        <td class="${scoreClass}">${h.score}/${h.total}</td>
+                        <td style="font-size:12px; color:gray;">${timeStr}</td>
+                    </tr>`;
+                });
+            } catch (e) {
+                console.error("Ошибка загрузки данных", e);
             }
-
-            // Отправляем специальный тип данных (action: add_question)
-            const data = JSON.stringify({ action: 'add_question', topic: topic, text: text, answer: answer });
-            tg.sendData(data);
         }
     </script>
 </body>
