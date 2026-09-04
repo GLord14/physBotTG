@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Опрос по формулам</title>
+    <!-- Подключаем скрипт Telegram Web App -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 20px;
+        }
+        .question-block {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid var(--tg-theme-hint-color, #ccc);
+            border-radius: 8px;
+        }
+        input {
+            width: 90%;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h2>Проверка знаний</h2>
+    <div id="quiz-container"></div>
+    <button onclick="submitQuiz()">Отправить результаты</button>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Разворачиваем приложение на весь экран
+
+        // База вопросов (10 штук)
+        const questions = [
+            { id: 1, text: "Закон Ома для участка цепи (I = ?)", answer: "U/R" },
+            { id: 2, text: "Сила Ампера (F = ?)", answer: "IBL" },
+            { id: 3, text: "Сила Лоренца (без учета угла) (F = ?)", answer: "qvB" },
+            { id: 4, text: "ЭДС индукции (закон Фарадея по модулю) (E = ?)", answer: "df/dt" },
+            { id: 5, text: "Второй закон Ньютона (F = ?)", answer: "ma" },
+            { id: 6, text: "Кинетическая энергия (E = ?)", answer: "mv^2/2" },
+            { id: 7, text: "Формула работы (A = ?)", answer: "Fs" },
+            { id: 8, text: "Мощность электрического тока (P = ?)", answer: "UI" },
+            { id: 9, text: "Емкость плоского конденсатора (C = ?)", answer: "ee0S/d" },
+            { id: 10, text: "Связь длины волны, скорости и частоты (v = ?)", answer: "ln" } // l - лямбда, n - ню
+        ];
+
+        const container = document.getElementById('quiz-container');
+
+        // Рендерим вопросы
+        questions.forEach((q, index) => {
+            const div = document.createElement('div');
+            div.className = 'question-block';
+            div.innerHTML = `
+                <p><b>Вопрос ${index + 1}:</b> ${q.text}</p>
+                <input type="text" id="q${q.id}" placeholder="Введите формулу...">
+            `;
+            container.appendChild(div);
+        });
+
+        function submitQuiz() {
+            let score = 0;
+            questions.forEach(q => {
+                const inputVal = document.getElementById(`q${q.id}`).value;
+                // Очищаем от пробелов и приводим к нижнему регистру для гибкой проверки
+                const cleanInput = inputVal.replace(/\s+/g, '').toLowerCase();
+                const cleanAnswer = q.answer.toLowerCase();
+                
+                if (cleanInput === cleanAnswer) {
+                    score++;
+                }
+            });
+
+            // Отправляем данные обратно в бота
+            const data = JSON.stringify({ score: score, total: questions.length });
+            tg.sendData(data);
+        }
+    </script>
+</body>
+</html>
